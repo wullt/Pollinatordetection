@@ -1,0 +1,57 @@
+models:
+  flower:
+    weights_path: models/flower_n.pt
+    class_names: ["daisy", "wildemoere","flockenblume"]
+    confidence_threshold:  0.25
+    iou_threshold: 0.5
+    max_detections: 30
+    margin: 10
+    multi_label: false
+    multi_label_iou_threshold: 0.7
+    augment: false
+    image_size: 640
+  pollinator:
+    weights_path: models/pollinator_m.pt
+    class_names: ["honigbiene", "wildbiene","hummel","schwebfliege","fliege"]
+    confidence_threshold:  0.25
+    iou_threshold: 0.45
+    max_detections: 10
+    margin: 40
+    multi_label: true
+    multi_label_iou_threshold: 0.3
+    augment: false
+    image_size: 640
+
+
+
+message_queue:
+  zmq_host: localhost
+  zmq_port: 5557
+  request_timeout: 3000
+  request_retries: 10
+
+
+output:
+  ignore_empty_results: false
+
+  file:
+    store_file: true
+    base_dir: output
+    save_crops: true
+
+  http:
+    transmit_http: false
+    url: http://localhost:8080/api/v1/pollinators?node_id=${node_id}
+    method: POST
+    username: admin
+    password: admin
+
+  mqtt:
+    transmit_mqtt: false
+    host: mqtt.example.com
+    port: 8883
+    username: mqtt_user
+    password: mqtt_password
+    topic: "results/${hostname}/json"
+    use_tls: true
+    
