@@ -214,17 +214,21 @@ pollinator_model = YoloModel(
 while True:
     filename = get_filename()
     if filename is not None:
-        img = Image.open(filename)
         generator = MessageGenerator()
         log.info("Processing image: %s", os.path.basename(filename))
         generator.set_filename(os.path.basename(filename))
-        original_width, original_height = img.size
 
         flower_model.reset_inference_times()
         pollinator_model.reset_inference_times()
         pollinator_index = 0
         # predict flower
-        flower_model.predict(img)
+        try:
+            img = Image.open(filename)
+            original_width, original_height = img.size
+            flower_model.predict(img)
+        except Exception as e:
+            log.error("Error predicting flowers on file %s: %s", filename, e)
+            continue
         flower_crops = flower_model.get_crops()
         flower_boxes = flower_model.get_boxes()
         flower_classes = flower_model.get_classes()
