@@ -24,16 +24,21 @@ models:
 
 
 
-message_queue:
-  zmq_host: localhost
-  zmq_port: 5557
-  request_timeout: 3000
-  request_retries: 10
+input:
+  type: message_queue # or directory
+  message_queue:
+    zmq_host: localhost
+    zmq_port: 5557
+    request_timeout: 3000
+    request_retries: 10
+  directory:
+    base_dir: input
+    extension: .jpg
+  remove_after_processing: false
 
 
 output:
   ignore_empty_results: false
-
   file:
     store_file: true
     base_dir: output

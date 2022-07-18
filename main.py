@@ -21,7 +21,8 @@ import json
 
 import argparse
 from yolomodelhelper import YoloModel
-from messagehelper import MessageGenerator, Flower, Pollinator
+from messagehelper import MessageGenerator, Flower, Pollinator, MQTTClient, HTTPClient
+from inputs import ZMQClient, DirectoryInput
 import socket
 from tqdm import tqdm
 
@@ -71,56 +72,117 @@ MODEL_POLLINATOR_MULTI_LABEL_IOU_THRESHOLD = model_pollinator_config.get(
     "multi_label_iou_threshold"
 )
 
-# Input configuration (zmq)
-zmq_config = cfg.get("message_queue")
-ZMQ_HOST = zmq_config.get("zmq_host")
-ZMQ_PORT = zmq_config.get("zmq_port")
-ZMQ_REQ_TIMEOUT = zmq_config.get("request_timeout", 3000)
-ZMQ_REQ_RETRIES = zmq_config.get("request_retries", 10)
+
+# Input Configuration
+input_config = cfg.get("input")
+INPUT_TYPE = input_config.get("type")
+if INPUT_TYPE is None:
+    log.error("Input type not specified")
+    exit(1)
+zmq_client = None
+dir_input = None
+if INPUT_TYPE == "message_queue":
+    # ZMQ Input Configuration
+    zmq_config = input_config.get("message_queue")
+
+    ZMQ_HOST = zmq_config.get("zmq_host")
+    ZMQ_PORT = zmq_config.get("zmq_port")
+    ZMQ_REQ_TIMEOUT = zmq_config.get("request_timeout", 3000)
+    ZMQ_REQ_RETRIES = zmq_config.get("request_retries", 10)
+    zmq_client = ZMQClient(ZMQ_HOST, ZMQ_PORT, ZMQ_REQ_TIMEOUT, ZMQ_REQ_RETRIES)
+else:
+    # Directory Input Configuration
+    directory_config = input_config.get("directory")
+    if directory_config is None:
+        log.error("Directory input configuration is missing")
+        exit(1)
+    INPUT_DIRECTORY_BASE_DIR = directory_config.get("base_dir")
+    INPUT_DIRECTORY_EXTENSION = directory_config.get("extension")
+    dir_input = DirectoryInput(INPUT_DIRECTORY_BASE_DIR, INPUT_DIRECTORY_EXTENSION)
+    dir_input.scan()
+
+REMOVE_FILES_AFTER_PROCESSING = input_config.get("remove_after_processing", False)
+if REMOVE_FILES_AFTER_PROCESSING:
+    log.warning("Removing files after processing")
+
+# Output Configuration
+output_config = cfg.get("output")
+IGNORE_EMPTY_RESULTS = output_config.get("ignore_empty_results", False)
+# Output Configuration (File)
+STORE_FILE = False
+BASE_DIR = "output"
+SAVE_CROPS = True
+if output_config.get("file") is not None:
+    output_config_file = output_config.get("file")
+    if output_config_file.get("store_file", False):
+        STORE_FILE = True
+        BASE_DIR = output_config_file.get("base_dir", "output")
+        SAVE_CROPS = output_config_file.get("save_crops", True)
+        log.info("store_file is enabled, base_dir: {}".format(BASE_DIR))
 
 
-context = zmq.Context().instance()
-log.info("Connecting to ZMQ server on tcp://{}:{}".format(ZMQ_HOST, ZMQ_PORT))
-client = context.socket(zmq.REQ)
-client.connect("tcp://{}:{}".format(ZMQ_HOST, ZMQ_PORT))
+# Output configuration (MQTT)
+TRANSMIT_MQTT = False
+mclient = None
+if output_config.get("mqtt") is not None:
+    output_config_mqtt = output_config.get("mqtt")
+    if output_config_mqtt.get("transmit_mqtt", False):
+        TRANSMIT_MQTT = True
+        log.info("Transmitting to MQTT")
+        mqtt_host = output_config_mqtt.get("host")
+        mqtt_port = output_config_mqtt.get("port")
+        mqtt_topic = output_config_mqtt.get("topic")
+        mqtt_topic = mqtt_topic.replace("${hostname}", HOSTNAME)
+        mqtt_username = output_config_mqtt.get("username")
+        mqtt_password = output_config_mqtt.get("password")
+        mqtt_use_tls = output_config_mqtt.get("use_tls", mqtt_port == 8883)
+        log.info(
+            "MQTT host: {}, port: {}, topic: {}, username {} use_tls: {}".format(
+                mqtt_host, mqtt_port, mqtt_topic, mqtt_username, mqtt_use_tls
+            )
+        )
+        mclient = MQTTClient(
+            mqtt_host, mqtt_port, mqtt_topic, mqtt_username, mqtt_password, mqtt_use_tls
+        )
+
+# Output configuration (HTTP)
+TRANSMIT_HTTP = False
+hclient = None
+if output_config.get("http") is not None:
+    output_config_http = output_config.get("http")
+    if output_config_http.get("transmit_http", False):
+        TRANSMIT_HTTP = True
+        log.info("Transmitting to HTTP")
+        http_url = output_config_http.get("url")
+        http_url = http_url.replace("${hostname}", HOSTNAME)
+        http_username = output_config_http.get("username")
+        http_password = output_config_http.get("password")
+        http_method = output_config_http.get("method", "POST")
+        log.info(
+            "HTTP url: {}, method: {}, username: {}".format(
+                http_url, http_method, http_username
+            )
+        )
+        hclient = HTTPClient(http_url, http_username, http_password, http_method)
 
 
-def request_message(code, client):
-    """
-    request codes:
-        0: get first message
-        1: get first message and remove it from queue
-        2: remove first message from queue
-    response:
-        dict with message or
-        response codes:
-            0: no data available
-            1: first message removed from queue
-    """
-    log.info("Sending request with code {}".format(code))
-    client.send_json(code)
-    retries_left = ZMQ_REQ_RETRIES
-    while True:
-        if (client.poll(ZMQ_REQ_TIMEOUT) & zmq.POLLIN) != 0:
-            reply = client.recv_json()
-
-            # print("Server replied (%s)", type(reply))
-            return reply
-        retries_left -= 1
-        log.warning("No response from server")
-        client.setsockopt(zmq.LINGER, 0)
-        client.close()
-
-        if retries_left == 0:
-            log.error("Server seems to be offline, abandoning")
-            exit(1)
-        log.info("Reconnecting to server…")
-        # Create new connection
-        client = context.socket(zmq.REQ)
-        client.connect("tcp://{}:{}".format(ZMQ_HOST, ZMQ_PORT))
-
-        log.info("Resending code {}".format(code))
-        client.send_json(code)
+def get_filename():
+    if INPUT_TYPE == "message_queue":
+        msg = zmq_client.request_message(1)
+        if type(msg) == dict:
+            filename = msg.get("filename")
+            if filename is None:
+                log.error("No filename found in message")
+                return None
+            return filename
+        elif type(msg) == int:
+            if msg == 0:  # no data available
+                return None
+            else:
+                log.info("Got message with code %d", msg)
+                return None
+    else:
+        return dir_input.get_next()
 
 
 # Init Flower Model
@@ -150,14 +212,13 @@ pollinator_model = YoloModel(
 )
 
 while True:
-    # Get first message
-    msg = request_message(1, client)  # get first message, remove it from queue
-    if type(msg) == dict:
-        # get filename
-        filename = msg.get("filename")
+    filename = get_filename()
+    if filename is not None:
         img = Image.open(filename)
         generator = MessageGenerator()
-        generator.set_filename(filename)
+        log.info("Processing image: %s", os.path.basename(filename))
+        generator.set_filename(os.path.basename(filename))
+        original_width, original_height = img.size
 
         flower_model.reset_inference_times()
         pollinator_model.reset_inference_times()
@@ -209,9 +270,39 @@ while True:
                 generator.add_pollinator(pollinator_obj)
             if len(pollinator_indexes) > 0:
                 pollinator_index += max(pollinator_indexes) + 1
+        # add metadata to message
+        generator.add_metadata(flower_model.get_metadata(), "flower_inference")
+        generator.add_metadata(pollinator_model.get_metadata(), "pollinator_inference")
+        generator.add_metadata(
+            {"size": [original_width, original_height]}, "original_image"
+        )
+
         result = generator.generate_message()
-        print(json.dumps(result))
-    elif type(msg) == int:
-        if msg == 0:  # no data available
-            log.info("No data available")
-            time.sleep(5)
+        if IGNORE_EMPTY_RESULTS and len(generator.pollinators) == 0:
+            log.info("No pollinators detected, skipping")
+            continue
+        if STORE_FILE:
+            generator.store_message(BASE_DIR, SAVE_CROPS)
+        if TRANSMIT_HTTP:
+            hclient.send_message(
+                result,
+                filename=generator.generate_filename(),
+                node_id=generator.node_id,
+                hostname=HOSTNAME,
+            )
+        if TRANSMIT_MQTT:
+            mclient.publish(
+                result,
+                filename=generator.generate_filename(),
+                node_id=generator.node_id,
+                hostname=HOSTNAME,
+            )
+
+        # print(json.dumps(result))
+        if REMOVE_FILES_AFTER_PROCESSING:
+            log.info("Removing file %s", filename)
+            os.remove(filename)
+
+    else:
+        log.info("No data available")
+        time.sleep(5)
