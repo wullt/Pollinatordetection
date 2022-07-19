@@ -1,0 +1,16 @@
+# Base
+torch
+torchvision
+tqdm
+numpy
+Pillow
+PyYAML
+pandas
+
+# Inputs
+zmq
+
+# Outputs
+requests
+paho-mqtt
+
