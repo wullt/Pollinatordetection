@@ -11,7 +11,6 @@ handler.setFormatter(
 log.addHandler(handler)
 
 logging.basicConfig(level=logging.INFO)
-import zmq
 import time
 import os
 from PIL import Image
