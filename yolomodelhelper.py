@@ -73,7 +73,7 @@ class YoloModel:
         Returns the total inference time and the average inference time
         """
         if self.number_of_inferences == 0:
-            return None, None
+            return 0, 0
         return (
             self.total_inference_time,
             self.total_inference_time / self.number_of_inferences,
