@@ -3,3 +3,5 @@ config.yaml
 __pycache__/
 output/
 *.pt
+*.tflite
+*.log
