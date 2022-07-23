@@ -275,6 +275,8 @@ while True:
                 generator.add_pollinator(pollinator_obj)
             if len(pollinator_indexes) > 0:
                 pollinator_index += max(pollinator_indexes) + 1
+        log.info("Found {} flowers in {} ms".format(len(flower_crops), int(flower_model.get_inference_times()[0]*1000)))
+        log.info("Found {} pollinators in {} ms".format(pollinator_index, int(pollinator_model.get_inference_times()[0]*1000)))
         # add metadata to message
         generator.add_metadata(flower_model.get_metadata(), "flower_inference")
         generator.add_metadata(pollinator_model.get_metadata(), "pollinator_inference")
