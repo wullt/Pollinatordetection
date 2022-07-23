@@ -262,6 +262,8 @@ while True:
             flower_model.predict(img)
         except Exception as e:
             log.error("Error predicting flowers on file %s: %s", filename, e)
+            log_pollinator_start()
+            log_results(0,0)
             continue
         flower_crops = flower_model.get_crops()
         flower_boxes = flower_model.get_boxes()
