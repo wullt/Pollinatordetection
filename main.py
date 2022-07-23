@@ -187,6 +187,7 @@ def get_filename():
 # Init Flower Model
 flower_model = YoloModel(
     MODEL_FLOWER_WEIGHTS,
+    image_size=MODEL_FLOWER_IMG_SIZE,
     confidence_threshold=MODEL_FLOWER_CONFIDENCE_THRESHOLD,
     iou_threshold=MODEL_FLOWER_IOU_THRESHOLD,
     margin=MODEL_FLOWER_MARGIN,
@@ -200,6 +201,7 @@ flower_model = YoloModel(
 # Init Pollinator Model
 pollinator_model = YoloModel(
     MODEL_POLLINATOR_WEIGHTS,
+    image_size=MODEL_POLLINATOR_IMG_SIZE,
     confidence_threshold=MODEL_POLLINATOR_CONFIDENCE_THRESHOLD,
     iou_threshold=MODEL_POLLINATOR_IOU_THRESHOLD,
     margin=MODEL_POLLINATOR_MARGIN,

@@ -11,6 +11,7 @@ class YoloModel:
         self,
         model_path,
         yolov5_path=None,
+        image_size=640,
         confidence_threshold=0.25,
         iou_threshold=0.45,
         margin=40,
@@ -36,6 +37,7 @@ class YoloModel:
         self.model.max_det = max_det  # maximum number of detections per image
         self.model.amp = amp  # Automatic Mixed Precision (AMP) inference
         self.model.classes = None  # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
+        self.image_size = image_size
         self.margin = margin
         self.augment = augment
         self.class_names = class_names
@@ -77,10 +79,10 @@ class YoloModel:
             self.total_inference_time / self.number_of_inferences,
         )
 
-    def predict(self, input, model_img_size=640):
+    def predict(self, input):
         t0 = time.time()
         self.results = self.model.forward(
-            input, augment=self.augment, size=model_img_size
+            input, augment=self.augment, size=self.image_size
         )
         self.total_inference_time += time.time() - t0
         self.number_of_inferences += 1
