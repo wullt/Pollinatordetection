@@ -2,3 +2,4 @@ configuration.yaml
 config.yaml
 __pycache__/
 output/
+*.pt
