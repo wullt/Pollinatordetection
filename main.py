@@ -24,6 +24,7 @@ from messagehelper import MessageGenerator, Flower, Pollinator, MQTTClient, HTTP
 from inputs import ZMQClient, DirectoryInput
 import socket
 from tqdm import tqdm
+import datetime
 
 argparser = argparse.ArgumentParser(description="Pollinator Inference")
 argparser.add_argument("--config", type=str, default="config.yaml", help="config file")
@@ -35,6 +36,36 @@ with open(args.config, "r") as stream:
     except yaml.YAMLError as exc:
         log.error(exc)
         exit(1)
+
+
+logfilename = "/home/pi/logs/inference_monitoring_" + datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")+".csv"
+logfile = open(logfilename, "w")
+logfile.write("time,download,flower_start,pollinator_start,num_flowers,num_pollinators\n")
+logfile.close()
+
+def log_start_download():
+    logfile = open(logfilename, "a")
+    log_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ",1,,,,\n"
+    logfile.write(log_str)
+    logfile.close()
+
+def log_flower_start():
+    logfile = open(logfilename, "a")
+    log_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ",1,1,,,\n"
+    logfile.write(log_str)
+    logfile.close()
+
+def log_pollinator_start():
+    logfile = open(logfilename, "a")
+    log_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ",,1,1,,\n"
+    logfile.write(log_str)
+    logfile.close()
+
+def log_results(num_flowers, num_pollinators):
+    logfile = open(logfilename, "a")
+    log_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ",,,1," + str(num_flowers) + "," + str(num_pollinators) + "\n"
+    logfile.write(log_str)
+    logfile.close()
 
 HOSTNAME = socket.gethostname()
 
@@ -215,6 +246,7 @@ pollinator_model = YoloModel(
 while True:
     filename = get_filename()
     if filename is not None:
+        log_start_download()
         generator = MessageGenerator()
         log.info("Processing image: %s", os.path.basename(filename))
         generator.set_filename(os.path.basename(filename))
@@ -226,6 +258,7 @@ while True:
         try:
             img = Image.open(filename)
             original_width, original_height = img.size
+            log_flower_start()
             flower_model.predict(img)
         except Exception as e:
             log.error("Error predicting flowers on file %s: %s", filename, e)
@@ -235,6 +268,7 @@ while True:
         flower_classes = flower_model.get_classes()
         flower_scores = flower_model.get_scores()
         flower_names = flower_model.get_names()
+        log_pollinator_start()
         for flower_index in tqdm(range(len(flower_crops))):
             # add flower to message
             # TODO: add flower to message
@@ -275,6 +309,7 @@ while True:
                 generator.add_pollinator(pollinator_obj)
             if len(pollinator_indexes) > 0:
                 pollinator_index += max(pollinator_indexes) + 1
+        log_results(num_flowers=len(flower_crops), num_pollinators=pollinator_index)
         log.info("Found {} flowers in {} ms".format(len(flower_crops), int(flower_model.get_inference_times()[0]*1000)))
         log.info("Found {} pollinators in {} ms".format(pollinator_index, int(pollinator_model.get_inference_times()[0]*1000)))
         # add metadata to message
