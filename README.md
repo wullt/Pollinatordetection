@@ -176,3 +176,97 @@ In `output.http.url` and `output.mqtt.topic`, following placeholders are availab
 | `${filename}` | the generated filename `<node_id>_<time_string>.json` |
 | `${node_id}`  | the id of the node which captured the image           |
 | `${hostname}` | the hostname                                          |
+
+## Output Format
+
+The results are stored or transmitted in JSON format.
+A sample output message is shown below.
+
+```json
+{
+    "detections": {
+        "flowers": [
+            {
+                "index": 0,
+                "class_name": "daisy",
+                "score": 0.948,
+                "size": [
+                    312,
+                    291
+                ]
+            },
+            {
+                "index": 1,
+                "class_name": "daisy",
+                "score": 0.936,
+                "size": [
+                    424,
+                    438
+                ]
+            },
+            {
+                "index": 2,
+                "class_name": "flockenblume",
+                "score": 0.914,
+                "size": [
+                    213,
+                    237
+                ]
+            }
+        ],
+        "pollinators": [
+            {
+                "index": 0,
+                "flower_index": 1,
+                "class_name": "schwebfliege",
+                "score": 0.873,
+                "crop": "/9j/4A ... 2Q=="
+            },
+            {
+                "index": 1,
+                "flower_index": 2,
+                "class_name": "schwebfliege",
+                "score": 0.901,
+                "crop": "/9j/4AAQ ... 2Q=="
+            }
+        ]
+    },
+    "metadata": {
+        "node_id": "0344-6782",
+        "capture_timestamp": "2021-07-22 11:02:25",
+        "flower_inference": {
+            "confidence_threshold": 0.45,
+            "iou_threshold": 0.45,
+            "margin": 15,
+            "multi_label": false,
+            "multi_label_iou_threshold": 0.7,
+            "model_name": "flowers_640_n.pt",
+            "max_det": 30,
+            "augment": false,
+            "inference_times": [
+                0.22
+            ]
+        },
+        "pollinator_inference": {
+            "confidence_threshold": 0.6,
+            "iou_threshold": 0.45,
+            "margin": 60,
+            "multi_label": true,
+            "multi_label_iou_threshold": 0.45,
+            "model_name": "pollinators_480_s.pt",
+            "max_det": 10,
+            "augment": false,
+            "inference_times": [
+                0.205,
+                0.029
+            ]
+        },
+        "original_image": {
+            "size": [
+                3280,
+                2464
+            ]
+        }
+    }
+}
+```
