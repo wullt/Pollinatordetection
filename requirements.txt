@@ -8,7 +8,7 @@ PyYAML
 pandas
 opencv-python
 matplotlib
-
+seaborn
 
 # Inputs
 zmq
