@@ -142,8 +142,8 @@ class YoloModel:
     def get_crops(self):
         res = self.results
         crops = []
-        for i in range(len(res.imgs)):
-            img_array = res.imgs[i]
+        for i in range(len(res.ims)):
+            img_array = res.ims[i]
             image_width = img_array.shape[1]
             image_height = img_array.shape[0]
 
