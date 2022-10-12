@@ -6,6 +6,9 @@ numpy
 Pillow
 PyYAML
 pandas
+opencv-python
+matplotlib
+
 
 # Inputs
 zmq
